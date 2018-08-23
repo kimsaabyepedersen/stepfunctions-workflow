@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  StepFuntions
+
+  Sample SAM Template for StepFuntions
+
+Globals:
+  Function:
+    Timeout: 20
+
+
+Resources:
+
+  OpenCaseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/stepfunctions-1.0.jar
+      Handler: org.saabye_pedersen.functions.OpenCaseHandler::handleRequest
+      Runtime: java8
+
+  AssignCaseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/stepfunctions-1.0.jar
+      Handler: org.saabye_pedersen.functions.AssignCaseHandler::handleRequest
+      Runtime: java8
+
+  WorkOnCaseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/stepfunctions-1.0.jar
+      Handler: org.saabye_pedersen.functions.WorkOnCaseHandler::handleRequest
+      Runtime: java8
+
+  CloseCaseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/stepfunctions-1.0.jar
+      Handler: org.saabye_pedersen.functions.CloseCaseHandler::handleRequest
+      Runtime: java8
+
+  EscalateCaseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/stepfunctions-1.0.jar
+      Handler: org.saabye_pedersen.functions.EscalateCaseHandler::handleRequest
+      Runtime: java8
+
+
+  StateMachineRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "states.amazonaws.com"
+          Action:
+          - "sts:AssumeRole"
+      Path: "/"
+
+  StateMachineRolePolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "invokeLambda"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Action: "lambda:InvokeFunction"
+          Resource: "*"
+      Roles:
+      - Ref: "StateMachineRole"
+
+  StateMachine:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      RoleArn: !GetAtt StateMachineRole.Arn
+      StateMachineName: CallCenterStateMachine
+      DefinitionString: !Sub |-
+        {
+          "Comment": "A simple AWS Step Functions state machine that automates a call center support session.",
+          "StartAt": "Open Case",
+          "States": {
+            "Open Case": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${OpenCaseFunction}",
+              "Next": "Assign Case"
+            },
+            "Assign Case": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AssignCaseFunction}",
+              "Next": "Work on Case"
+            },
+            "Work on Case": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${WorkOnCaseFunction}",
+              "Next": "Is Case Resolved"
+            },
+            "Is Case Resolved": {
+              "Type": "Choice",
+              "Choices": [
+              {
+                "Variable": "$.Status",
+                "NumericEquals": 1,
+                "Next": "Close Case"
+              },
+              {
+                "Variable": "$.Status",
+                "NumericEquals": 0,
+                "Next": "Escalate Case"
+              }
+              ]
+            },
+            "Close Case": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${CloseCaseFunction}",
+              "End": true
+            },
+            "Escalate Case": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${EscalateCaseFunction}",
+              "Next": "Fail"
+            },
+            "Fail": {
+              "Type": "Fail",
+              "Cause": "Engage Tier 2 Support."    }
+          }
+        }
