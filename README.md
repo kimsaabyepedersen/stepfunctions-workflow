@@ -1,4 +1,4 @@
-# AWS Step Functions demo
+# AWS Step Functions Workflow Demo
 
 This is a Java version of [Create a Serverless Workflow](https://aws.amazon.com/getting-started/tutorials/create-a-serverless-workflow-step-functions-lambda/)
 
